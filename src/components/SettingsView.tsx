@@ -7,7 +7,6 @@ import {
   Flame, 
   Camera, 
   Save, 
-  RotateCcw,
   CheckCircle2,
   Calendar,
   Sliders,
@@ -32,7 +31,6 @@ export const SettingsView: React.FC = () => {
     updateReminders, 
     services, 
     updateServiceConfig,
-    resetToSampleData,
     cloudStatus,
     firebaseUser,
     setShowAuthScreen,
@@ -657,7 +655,7 @@ export const SettingsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAuthScreen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#006a61] hover:bg-[#005149] text-white font-semibold shadow-xs transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#006a61] hover:bg-[#005149] text-white font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Iniciar Sesión / Registrarse</span>
@@ -665,30 +663,6 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
         </div>
-      </section>
-
-      {/* Advanced / Maintenance Section */}
-      <section className="bg-[#f2f4f6] rounded-xl p-6 border border-[#c6c6cd]/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 className="font-bold text-sm text-[#191c1e]">
-            Restablecer Datos de Demostración
-          </h3>
-          <p className="text-xs text-[#45464d] mt-0.5">
-            Restaura las 24 lecturas históricas de muestra y restablece la configuración original.
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            if (window.confirm('¿Deseas restaurar los datos de muestra iniciales?')) {
-              resetToSampleData();
-            }
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-[#c6c6cd] rounded-lg text-xs font-semibold text-[#191c1e] hover:bg-[#e6e8ea] transition-colors shrink-0"
-        >
-          <RotateCcw className="w-3.5 h-3.5 text-[#006a61]" />
-          <span>Restaurar Datos</span>
-        </button>
       </section>
     </div>
   );

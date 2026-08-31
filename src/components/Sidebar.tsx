@@ -147,15 +147,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, setMobileO
                 />
               ) : (
                 <div className="w-7 h-7 rounded-full bg-[#006a61]/10 flex items-center justify-center text-[#006a61] shrink-0 font-bold text-xs">
-                  {isUserAuthenticated ? (profile.name?.charAt(0) || 'U') : 'D'}
+                  {profile.name?.charAt(0) || 'U'}
                 </div>
               )}
               <div className="overflow-hidden">
                 <p className="text-xs font-bold text-[#191c1e] truncate leading-tight">
-                  {isUserAuthenticated ? profile.name : 'Modo Invitado'}
+                  {profile.name || 'Mi Cuenta'}
                 </p>
                 <p className="text-[10px] text-[#76777d] truncate leading-tight">
-                  {isUserAuthenticated ? (firebaseUser?.email || profile.email) : 'Datos locales / demo'}
+                  {firebaseUser?.email || profile.email || 'Conectado a Firebase'}
                 </p>
               </div>
             </div>
@@ -172,29 +172,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, setMobileO
             <span className="font-medium">Ayuda</span>
           </button>
 
-          {isUserAuthenticated ? (
-            <button
-              onClick={() => {
-                setIsLogoutModalOpen(true);
-                if (setMobileOpen) setMobileOpen(false);
-              }}
-              className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-colors text-left"
-            >
-              <LogOut className="w-4 h-4 shrink-0 text-[#ba1a1a]" />
-              <span className="font-medium">Cerrar Sesión</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                setShowAuthScreen(true);
-                if (setMobileOpen) setMobileOpen(false);
-              }}
-              className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#006a61] hover:bg-[#86f2e4]/30 font-semibold transition-colors text-left"
-            >
-              <LogIn className="w-4 h-4 shrink-0 text-[#006a61]" />
-              <span>Iniciar Sesión</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setIsLogoutModalOpen(true);
+              if (setMobileOpen) setMobileOpen(false);
+            }}
+            className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-colors text-left"
+          >
+            <LogOut className="w-4 h-4 shrink-0 text-[#ba1a1a]" />
+            <span className="font-medium">Cerrar Sesión</span>
+          </button>
         </div>
       </aside>
     </>

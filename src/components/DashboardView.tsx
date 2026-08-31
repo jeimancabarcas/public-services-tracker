@@ -136,12 +136,18 @@ export const DashboardView: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-sm text-[#191c1e]">Luz</h3>
               </div>
-              {getServiceBadge(luzComp.status)}
+              {luzComp.current ? (
+                getServiceBadge(luzComp.status)
+              ) : (
+                <span className="bg-[#f2f4f6] text-[#76777d] px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                  Sin registros
+                </span>
+              )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-3xl font-extrabold text-[#191c1e] tracking-tight">
-                {luzComp.current ? luzComp.current.consumption.toLocaleString('es-MX') : '342'}
+                {luzComp.current ? luzComp.current.consumption.toLocaleString('es-MX') : '0'}
               </span>
               <span className="text-sm font-medium text-[#45464d]">
                 {services.luz?.unit || 'kWh'}
@@ -150,15 +156,21 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="pt-2 border-t border-[#f2f4f6]">
-            <p className="text-xs text-[#45464d] flex items-center gap-1">
-              <span>Mes anterior:</span>
-              <span className="font-semibold">
-                {luzComp.previous ? `${luzComp.previous.consumption} ${services.luz?.unit || 'kWh'}` : '290 kWh'}
-              </span>
-              <span className={`font-bold ml-1 flex items-center ${luzComp.percentageDiff >= 0 ? 'text-[#ba1a1a]' : 'text-[#059669]'}`}>
-                {luzComp.percentageDiff >= 0 ? '+' : ''}{luzComp.previous ? `${luzComp.percentageDiff}%` : '(+18%)'}
-              </span>
-            </p>
+            {luzComp.previous ? (
+              <p className="text-xs text-[#45464d] flex items-center gap-1">
+                <span>Mes anterior:</span>
+                <span className="font-semibold">
+                  {`${luzComp.previous.consumption} ${services.luz?.unit || 'kWh'}`}
+                </span>
+                <span className={`font-bold ml-1 flex items-center ${luzComp.percentageDiff >= 0 ? 'text-[#ba1a1a]' : 'text-[#059669]'}`}>
+                  {luzComp.percentageDiff >= 0 ? '+' : ''}{`${luzComp.percentageDiff}%`}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-[#76777d]">
+                {luzComp.current ? 'Primer registro de consumo' : 'Registra tu primera lectura'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -172,12 +184,18 @@ export const DashboardView: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-sm text-[#191c1e]">Agua</h3>
               </div>
-              {getServiceBadge(aguaComp.status || 'optimo')}
+              {aguaComp.current ? (
+                getServiceBadge(aguaComp.status || 'optimo')
+              ) : (
+                <span className="bg-[#f2f4f6] text-[#76777d] px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                  Sin registros
+                </span>
+              )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-3xl font-extrabold text-[#191c1e] tracking-tight">
-                {aguaComp.current ? aguaComp.current.consumption.toLocaleString('es-MX') : '12.5'}
+                {aguaComp.current ? aguaComp.current.consumption.toLocaleString('es-MX') : '0'}
               </span>
               <span className="text-sm font-medium text-[#45464d]">
                 {services.agua?.unit || 'm³'}
@@ -186,15 +204,21 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="pt-2 border-t border-[#f2f4f6]">
-            <p className="text-xs text-[#45464d] flex items-center gap-1">
-              <span>Mes anterior:</span>
-              <span className="font-semibold">
-                {aguaComp.previous ? `${aguaComp.previous.consumption} ${services.agua?.unit || 'm³'}` : '14.0 m³'}
-              </span>
-              <span className={`font-bold ml-1 flex items-center ${aguaComp.percentageDiff <= 0 ? 'text-[#059669]' : 'text-[#ba1a1a]'}`}>
-                {aguaComp.previous ? `${aguaComp.percentageDiff > 0 ? '+' : ''}${aguaComp.percentageDiff}%` : '(-10%)'}
-              </span>
-            </p>
+            {aguaComp.previous ? (
+              <p className="text-xs text-[#45464d] flex items-center gap-1">
+                <span>Mes anterior:</span>
+                <span className="font-semibold">
+                  {`${aguaComp.previous.consumption} ${services.agua?.unit || 'm³'}`}
+                </span>
+                <span className={`font-bold ml-1 flex items-center ${aguaComp.percentageDiff <= 0 ? 'text-[#059669]' : 'text-[#ba1a1a]'}`}>
+                  {aguaComp.percentageDiff > 0 ? '+' : ''}{`${aguaComp.percentageDiff}%`}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-[#76777d]">
+                {aguaComp.current ? 'Primer registro de consumo' : 'Registra tu primera lectura'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -208,12 +232,18 @@ export const DashboardView: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-sm text-[#191c1e]">Gas</h3>
               </div>
-              {getServiceBadge(gasComp.status || 'moderado')}
+              {gasComp.current ? (
+                getServiceBadge(gasComp.status || 'moderado')
+              ) : (
+                <span className="bg-[#f2f4f6] text-[#76777d] px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                  Sin registros
+                </span>
+              )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-3xl font-extrabold text-[#191c1e] tracking-tight">
-                {gasComp.current ? gasComp.current.consumption.toLocaleString('es-MX') : '45'}
+                {gasComp.current ? gasComp.current.consumption.toLocaleString('es-MX') : '0'}
               </span>
               <span className="text-sm font-medium text-[#45464d]">
                 {services.gas?.unit || 'm³'}
@@ -222,15 +252,21 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="pt-2 border-t border-[#f2f4f6]">
-            <p className="text-xs text-[#45464d] flex items-center gap-1">
-              <span>Mes anterior:</span>
-              <span className="font-semibold">
-                {gasComp.previous ? `${gasComp.previous.consumption} ${services.gas?.unit || 'm³'}` : '42 m³'}
-              </span>
-              <span className={`font-bold ml-1 flex items-center ${gasComp.percentageDiff >= 0 ? 'text-[#D97706]' : 'text-[#059669]'}`}>
-                {gasComp.previous ? `${gasComp.percentageDiff > 0 ? '+' : ''}${gasComp.percentageDiff}%` : '(+7%)'}
-              </span>
-            </p>
+            {gasComp.previous ? (
+              <p className="text-xs text-[#45464d] flex items-center gap-1">
+                <span>Mes anterior:</span>
+                <span className="font-semibold">
+                  {`${gasComp.previous.consumption} ${services.gas?.unit || 'm³'}`}
+                </span>
+                <span className={`font-bold ml-1 flex items-center ${gasComp.percentageDiff >= 0 ? 'text-[#D97706]' : 'text-[#059669]'}`}>
+                  {gasComp.percentageDiff > 0 ? '+' : ''}{`${gasComp.percentageDiff}%`}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-[#76777d]">
+                {gasComp.current ? 'Primer registro de consumo' : 'Registra tu primera lectura'}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -428,36 +464,48 @@ export const DashboardView: React.FC = () => {
             </div>
 
             <div className="divide-y divide-[#eceef0] flex-1 flex flex-col justify-around">
-              {recentReadings.map((reading) => (
-                <div
-                  key={reading.id}
-                  onClick={() => setSelectedReadingForDetail(reading)}
-                  className="flex items-center justify-between py-3 group cursor-pointer hover:bg-[#f7f9fb] px-2 rounded-lg transition-colors -mx-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[#f2f4f6] flex items-center justify-center group-hover:scale-105 transition-transform">
-                      {getServiceIcon(reading.service)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#191c1e]">
-                        {getMonthTitleForReading(reading)}
-                      </p>
-                      <p className="text-xs text-[#76777d]">
-                        {formatDateDisplay(reading.date)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-[#191c1e]">
-                      ${reading.totalCost.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-[#45464d]">
-                      {reading.consumption} {reading.unit}
-                    </p>
-                  </div>
+              {recentReadings.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#76777d]">
+                  <p>Aún no tienes lecturas registradas.</p>
+                  <button
+                    onClick={() => setActiveTab('registro')}
+                    className="mt-2 text-[#006a61] font-semibold hover:underline"
+                  >
+                    + Registrar primera lectura
+                  </button>
                 </div>
-              ))}
+              ) : (
+                recentReadings.map((reading) => (
+                  <div
+                    key={reading.id}
+                    onClick={() => setSelectedReadingForDetail(reading)}
+                    className="flex items-center justify-between py-3 group cursor-pointer hover:bg-[#f7f9fb] px-2 rounded-lg transition-colors -mx-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-[#f2f4f6] flex items-center justify-center group-hover:scale-105 transition-transform">
+                        {getServiceIcon(reading.service)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#191c1e]">
+                          {getMonthTitleForReading(reading)}
+                        </p>
+                        <p className="text-xs text-[#76777d]">
+                          {formatDateDisplay(reading.date)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-[#191c1e]">
+                        ${reading.totalCost.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-[#45464d]">
+                        {reading.consumption} {reading.unit}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Zap } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -17,11 +18,32 @@ const MainLayout: React.FC = () => {
   const { activeTab, showAuthScreen, isGuest, firebaseUser, isAuthLoading } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // If showing auth view or if not logged in and not guest
-  const isAnonymous = firebaseUser?.isAnonymous ?? true;
-  const shouldShowAuth = showAuthScreen || (!isGuest && isAnonymous && !firebaseUser);
+  // Authentication check
+  const isUserAuthenticated = Boolean(firebaseUser && !firebaseUser.isAnonymous);
+  const shouldShowAuth = showAuthScreen || (!isGuest && !isUserAuthenticated);
 
-  if (shouldShowAuth && !isAuthLoading) {
+  // 1. If Firebase Auth state is still resolving on page load/refresh, show clean splash screen
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f9fb] flex flex-col items-center justify-center text-[#191c1e] antialiased">
+        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-200">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#006a61] to-[#131b2e] flex items-center justify-center shadow-md">
+            <Zap className="w-8 h-8 text-[#86f2e4] animate-pulse" />
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h1 className="text-lg font-bold text-[#191c1e] tracking-tight">HogarMedido</h1>
+            <div className="flex items-center gap-2 text-xs text-[#76777d]">
+              <div className="w-3.5 h-3.5 border-2 border-[#006a61] border-t-transparent rounded-full animate-spin" />
+              <span>Verificando sesión...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. If user is not authenticated and not in guest mode, show AuthView immediately
+  if (shouldShowAuth) {
     return (
       <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e] antialiased">
         <AuthView />
@@ -30,6 +52,7 @@ const MainLayout: React.FC = () => {
     );
   }
 
+  // 3. User is logged in or guest mode active: show main dashboard application
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e] flex flex-col antialiased">
       {/* Sidebar Navigation */}

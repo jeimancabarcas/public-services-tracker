@@ -10,10 +10,9 @@ import {
   MonthlyTrendData,
   CloudSyncStatus
 } from '../types';
-import { INITIAL_READINGS, INITIAL_SERVICES, INITIAL_PROFILE, INITIAL_REMINDERS } from '../data/initialData';
+import { INITIAL_SERVICES, INITIAL_PROFILE, INITIAL_REMINDERS } from '../data/initialData';
 import { auth, db } from '../lib/firebase';
 import { 
-  signInAnonymously, 
   onAuthStateChanged, 
   signInWithPopup,
   GoogleAuthProvider,
@@ -26,8 +25,7 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  onSnapshot, 
-  writeBatch
+  onSnapshot 
 } from 'firebase/firestore';
 
 interface ToastInfo {
@@ -64,23 +62,21 @@ interface AppContextType {
   authError: string | null;
   showAuthScreen: boolean;
   setShowAuthScreen: (show: boolean) => void;
-  isGuest: boolean;
+  isUserAuthenticated: boolean;
 
   // Social Auth actions (Google & Facebook)
   loginWithGoogle: (estratoPreference?: number) => Promise<void>;
   loginWithFacebook: (estratoPreference?: number) => Promise<void>;
-  loginAsGuest: () => Promise<void>;
   logoutUser: () => Promise<void>;
   clearAuthError: () => void;
 
   // Actions
-  addReading: (readingData: Omit<UtilityReading, 'id' | 'createdAt' | 'status' | 'consumption'>) => UtilityReading;
-  updateReading: (id: string, readingData: Partial<UtilityReading>) => void;
-  deleteReading: (id: string) => void;
-  updateProfile: (profile: UserProfile) => void;
-  updateServiceConfig: (serviceId: ServiceType, updates: Partial<ServiceConfig>) => void;
-  updateReminders: (reminders: ReminderSettings) => void;
-  resetToSampleData: () => void;
+  addReading: (readingData: Omit<UtilityReading, 'id' | 'createdAt' | 'status' | 'consumption'>) => Promise<UtilityReading>;
+  updateReading: (id: string, readingData: Partial<UtilityReading>) => Promise<void>;
+  deleteReading: (id: string) => Promise<void>;
+  updateProfile: (profile: UserProfile) => Promise<void>;
+  updateServiceConfig: (serviceId: ServiceType, updates: Partial<ServiceConfig>) => Promise<void>;
+  updateReminders: (reminders: ReminderSettings) => Promise<void>;
 
   // Calculation helpers
   calculateCost: (service: ServiceType, consumption: number, unitPrice: number, estratoOverride?: number) => {
@@ -104,14 +100,6 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-const STORAGE_KEYS = {
-  READINGS: 'hogarmedido_readings_v1',
-  SERVICES: 'hogarmedido_services_v1',
-  PROFILE: 'hogarmedido_profile_v1',
-  REMINDERS: 'hogarmedido_reminders_v1',
-  GUEST_MODE: 'hogarmedido_guest_mode_v1',
-};
 
 const mapAuthErrorToSpanish = (error: any): string => {
   const code = error?.code || '';
@@ -141,45 +129,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [showAuthScreen, setShowAuthScreen] = useState<boolean>(false);
-  const [isGuest, setIsGuest] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.GUEST_MODE) === 'true';
-  });
 
-  const [readings, setReadings] = useState<UtilityReading[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.READINGS);
-      return stored ? JSON.parse(stored) : INITIAL_READINGS;
-    } catch {
-      return INITIAL_READINGS;
-    }
-  });
-
-  const [services, setServices] = useState<Record<string, ServiceConfig>>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.SERVICES);
-      return stored ? JSON.parse(stored) : INITIAL_SERVICES;
-    } catch {
-      return INITIAL_SERVICES;
-    }
-  });
-
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.PROFILE);
-      return stored ? JSON.parse(stored) : INITIAL_PROFILE;
-    } catch {
-      return INITIAL_PROFILE;
-    }
-  });
-
-  const [reminders, setReminders] = useState<ReminderSettings>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.REMINDERS);
-      return stored ? JSON.parse(stored) : INITIAL_REMINDERS;
-    } catch {
-      return INITIAL_REMINDERS;
-    }
-  });
+  // Per-user dynamic data strictly synced from Firestore
+  const [readings, setReadings] = useState<UtilityReading[]>([]);
+  const [services, setServices] = useState<Record<string, ServiceConfig>>(INITIAL_SERVICES);
+  const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
+  const [reminders, setReminders] = useState<ReminderSettings>(INITIAL_REMINDERS);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isNewEntryModalOpen, setIsNewEntryModalOpen] = useState(false);
@@ -189,73 +144,151 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
 
-  // Ref to avoid cyclic updates between local state and firestore listeners
-  const isInitialSnapshotHandled = useRef(false);
+  const isUserAuthenticated = Boolean(firebaseUser && !firebaseUser.isAnonymous);
 
-  // Sync to localStorage as continuous backup
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.READINGS, JSON.stringify(readings));
-    } catch (e) {
-      console.error('Failed to persist readings locally', e);
-    }
-  }, [readings]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
-    } catch (e) {
-      console.error('Failed to persist services locally', e);
-    }
-  }, [services]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-    } catch (e) {
-      console.error('Failed to persist profile locally', e);
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(reminders));
-    } catch (e) {
-      console.error('Failed to persist reminders locally', e);
-    }
-  }, [reminders]);
-
-  // Firebase Authentication & Firestore real-time synchronization
+  // Firebase Authentication listener
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      setIsAuthLoading(true);
-      if (user) {
+      if (user && !user.isAnonymous) {
         setFirebaseUser(user);
         setCloudStatus('connected');
-        // If user is authenticated with email, update profile email/name
-        if (!user.isAnonymous && user.email) {
-          setProfile((prev) => ({
-            ...prev,
-            email: user.email || prev.email,
-            name: user.displayName || prev.name,
-          }));
-        }
+        setShowAuthScreen(false);
       } else {
-        // If not logged in and not guest, check if we need anonymous login
-        try {
-          const credential = await signInAnonymously(auth);
-          setFirebaseUser(credential.user);
-          setCloudStatus('connected');
-        } catch (err) {
-          console.warn('Firebase Auth sign-in error:', err);
-          setCloudStatus('offline');
-        }
+        setFirebaseUser(null);
+        setCloudStatus('offline');
+        setReadings([]);
+        setProfile(INITIAL_PROFILE);
+        setServices(INITIAL_SERVICES);
+        setReminders(INITIAL_REMINDERS);
       }
       setIsAuthLoading(false);
     });
 
     return () => unsubscribeAuth();
   }, []);
+
+  // Real-time Firestore synchronization per authenticated user
+  useEffect(() => {
+    if (!firebaseUser || firebaseUser.isAnonymous) {
+      setReadings([]);
+      return;
+    }
+
+    setCloudStatus('syncing');
+    const userId = firebaseUser.uid;
+
+    // 1. Listen to user readings collection in Firestore
+    const readingsColRef = collection(db, 'users', userId, 'readings');
+    const unsubReadings = onSnapshot(
+      readingsColRef,
+      (snapshot) => {
+        const cloudList: UtilityReading[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as UtilityReading;
+          cloudList.push({
+            ...data,
+            id: docSnap.id,
+          });
+        });
+        // Sort newest first
+        cloudList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setReadings(cloudList);
+        setCloudStatus('connected');
+      },
+      (error) => {
+        console.warn('Firestore readings sync error:', error);
+        setCloudStatus('offline');
+      }
+    );
+
+    // 2. Listen to user profile doc in Firestore
+    const profileDocRef = doc(db, 'users', userId);
+    const unsubProfile = onSnapshot(
+      profileDocRef,
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const cloudProfile = docSnap.data() as UserProfile;
+          setProfile((prev) => ({
+            ...prev,
+            ...cloudProfile,
+            name: cloudProfile.name || firebaseUser.displayName || prev.name,
+            email: cloudProfile.email || firebaseUser.email || prev.email,
+            avatarUrl: firebaseUser.photoURL || cloudProfile.avatarUrl || prev.avatarUrl,
+          }));
+        } else {
+          // Initialize user profile in Firestore
+          const defaultProf: UserProfile = {
+            ...INITIAL_PROFILE,
+            name: firebaseUser.displayName || 'Usuario',
+            email: firebaseUser.email || '',
+            avatarUrl: firebaseUser.photoURL || INITIAL_PROFILE.avatarUrl,
+            estrato: 3,
+          };
+          try {
+            await setDoc(profileDocRef, defaultProf, { merge: true });
+          } catch (e) {
+            console.warn('Failed to initialize profile in Firestore', e);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore profile sync error:', error);
+      }
+    );
+
+    // 3. Listen to user settings doc (services) in Firestore
+    const servicesDocRef = doc(db, 'users', userId, 'settings', 'services');
+    const unsubServices = onSnapshot(
+      servicesDocRef,
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data()?.services;
+          if (data) {
+            setServices(data);
+          }
+        } else {
+          try {
+            await setDoc(servicesDocRef, { services: INITIAL_SERVICES }, { merge: true });
+          } catch (e) {
+            console.warn('Failed to initialize services in Firestore', e);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore services sync error:', error);
+      }
+    );
+
+    // 4. Listen to user settings doc (reminders) in Firestore
+    const remindersDocRef = doc(db, 'users', userId, 'settings', 'reminders');
+    const unsubReminders = onSnapshot(
+      remindersDocRef,
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data()?.reminders;
+          if (data) {
+            setReminders(data);
+          }
+        } else {
+          try {
+            await setDoc(remindersDocRef, { reminders: INITIAL_REMINDERS }, { merge: true });
+          } catch (e) {
+            console.warn('Failed to initialize reminders in Firestore', e);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore reminders sync error:', error);
+      }
+    );
+
+    return () => {
+      unsubReadings();
+      unsubProfile();
+      unsubServices();
+      unsubReminders();
+    };
+  }, [firebaseUser]);
 
   const loginWithGoogle = async (estratoPreference?: number) => {
     setAuthError(null);
@@ -266,21 +299,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       setFirebaseUser(user);
-      setIsGuest(false);
-      localStorage.removeItem(STORAGE_KEYS.GUEST_MODE);
 
-      // Synchronize profile data
-      const chosenEstrato = estratoPreference || profile.estrato || 3;
+      const chosenEstrato = estratoPreference || 3;
       const updatedProfile: UserProfile = {
-        ...profile,
-        name: user.displayName || profile.name,
-        email: user.email || profile.email,
+        name: user.displayName || 'Usuario',
+        email: user.email || '',
+        avatarUrl: user.photoURL || INITIAL_PROFILE.avatarUrl,
+        location: 'Colombia',
         estrato: chosenEstrato,
       };
 
       setProfile(updatedProfile);
 
-      // Save/merge to Firestore
+      // Save/merge to Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       await setDoc(userDocRef, updatedProfile, { merge: true });
 
@@ -302,20 +333,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       setFirebaseUser(user);
-      setIsGuest(false);
-      localStorage.removeItem(STORAGE_KEYS.GUEST_MODE);
 
-      const chosenEstrato = estratoPreference || profile.estrato || 3;
+      const chosenEstrato = estratoPreference || 3;
       const updatedProfile: UserProfile = {
-        ...profile,
-        name: user.displayName || profile.name,
-        email: user.email || profile.email,
+        name: user.displayName || 'Usuario',
+        email: user.email || '',
+        avatarUrl: user.photoURL || INITIAL_PROFILE.avatarUrl,
+        location: 'Colombia',
         estrato: chosenEstrato,
       };
 
       setProfile(updatedProfile);
 
-      // Save/merge to Firestore
+      // Save/merge to Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       await setDoc(userDocRef, updatedProfile, { merge: true });
 
@@ -328,33 +358,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const loginAsGuest = async () => {
-    setAuthError(null);
-    try {
-      if (!firebaseUser) {
-        const cred = await signInAnonymously(auth);
-        setFirebaseUser(cred.user);
-      }
-      setIsGuest(true);
-      localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
-      setShowAuthScreen(false);
-    } catch (err: any) {
-      console.warn('Guest login error:', err);
-      setIsGuest(true);
-      localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
-      setShowAuthScreen(false);
-    }
-  };
-
   const logoutUser = async () => {
     try {
       await signOut(auth);
     } catch (e) {
       console.warn('Sign out error:', e);
     }
-    setIsGuest(false);
-    localStorage.removeItem(STORAGE_KEYS.GUEST_MODE);
     setFirebaseUser(null);
+    setReadings([]);
     setShowAuthScreen(true);
     showToast('Sesión cerrada correctamente.', 'info');
   };
@@ -362,128 +373,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearAuthError = () => {
     setAuthError(null);
   };
-
-  // Set up Firestore listeners when Firebase user is authenticated
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    setCloudStatus('syncing');
-    const userId = firebaseUser.uid;
-
-    // 1. Listen to readings collection
-    const readingsColRef = collection(db, 'users', userId, 'readings');
-    const unsubReadings = onSnapshot(
-      readingsColRef,
-      async (snapshot) => {
-        if (snapshot.empty && !isInitialSnapshotHandled.current) {
-          isInitialSnapshotHandled.current = true;
-          // Seed local readings to Firestore on first run
-          try {
-            const batch = writeBatch(db);
-            readings.forEach((item) => {
-              const itemDoc = doc(db, 'users', userId, 'readings', item.id);
-              batch.set(itemDoc, item);
-            });
-            await batch.commit();
-          } catch (e) {
-            console.warn('Failed to seed initial readings to Firestore', e);
-          }
-        } else if (!snapshot.empty) {
-          isInitialSnapshotHandled.current = true;
-          const cloudList: UtilityReading[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data() as UtilityReading;
-            cloudList.push({
-              ...data,
-              id: docSnap.id,
-            });
-          });
-          // Sort by date descending
-          cloudList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setReadings(cloudList);
-        }
-        setCloudStatus('connected');
-      },
-      (error) => {
-        console.warn('Firestore readings sync error:', error);
-        setCloudStatus('offline');
-      }
-    );
-
-    // 2. Listen to profile doc
-    const profileDocRef = doc(db, 'users', userId);
-    const unsubProfile = onSnapshot(
-      profileDocRef,
-      async (docSnap) => {
-        if (docSnap.exists()) {
-          const cloudProfile = docSnap.data() as UserProfile;
-          setProfile((prev) => ({ ...prev, ...cloudProfile }));
-        } else {
-          // Initialize profile doc
-          try {
-            await setDoc(profileDocRef, profile, { merge: true });
-          } catch (e) {
-            console.warn('Failed to initialize profile in Firestore', e);
-          }
-        }
-      },
-      (error) => {
-        console.warn('Firestore profile sync error:', error);
-      }
-    );
-
-    // 3. Listen to settings doc (services & reminders)
-    const servicesDocRef = doc(db, 'users', userId, 'settings', 'services');
-    const unsubServices = onSnapshot(
-      servicesDocRef,
-      async (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data()?.services;
-          if (data) {
-            setServices(data);
-          }
-        } else {
-          try {
-            await setDoc(servicesDocRef, { services }, { merge: true });
-          } catch (e) {
-            console.warn('Failed to initialize services in Firestore', e);
-          }
-        }
-      },
-      (error) => {
-        console.warn('Firestore services sync error:', error);
-      }
-    );
-
-    const remindersDocRef = doc(db, 'users', userId, 'settings', 'reminders');
-    const unsubReminders = onSnapshot(
-      remindersDocRef,
-      async (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data()?.reminders;
-          if (data) {
-            setReminders(data);
-          }
-        } else {
-          try {
-            await setDoc(remindersDocRef, { reminders }, { merge: true });
-          } catch (e) {
-            console.warn('Failed to initialize reminders in Firestore', e);
-          }
-        }
-      },
-      (error) => {
-        console.warn('Firestore reminders sync error:', error);
-      }
-    );
-
-    return () => {
-      unsubReadings();
-      unsubProfile();
-      unsubServices();
-      unsubReminders();
-    };
-  }, [firebaseUser]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
@@ -555,7 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  const addReading = (readingData: Omit<UtilityReading, 'id' | 'createdAt' | 'status' | 'consumption'>): UtilityReading => {
+  const addReading = async (readingData: Omit<UtilityReading, 'id' | 'createdAt' | 'status' | 'consumption'>): Promise<UtilityReading> => {
     const consumption = Math.max(0, readingData.currReading - readingData.prevReading);
     const status = calculateStatus(readingData.service, consumption);
     const costDetails = calculateCost(
@@ -578,21 +467,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
 
+    // Optimistic UI update
     setReadings((prev) => [newEntry, ...prev]);
 
-    // Save to Firestore
+    // Save to Firestore under user document
     if (firebaseUser) {
       const docRef = doc(db, 'users', firebaseUser.uid, 'readings', newEntry.id);
-      setDoc(docRef, newEntry).catch((err) => {
-        console.warn('Error persisting reading to Firestore:', err);
-      });
+      await setDoc(docRef, newEntry);
     }
 
-    showToast(`Lectura de ${services[readingData.service]?.name || readingData.service} registrada y sincronizada`);
+    showToast(`Lectura de ${services[readingData.service]?.name || readingData.service} guardada`);
     return newEntry;
   };
 
-  const updateReading = (id: string, readingData: Partial<UtilityReading>) => {
+  const updateReading = async (id: string, readingData: Partial<UtilityReading>) => {
     let updatedItem: UtilityReading | undefined;
 
     setReadings((prev) =>
@@ -632,43 +520,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save to Firestore
     if (firebaseUser && updatedItem) {
       const docRef = doc(db, 'users', firebaseUser.uid, 'readings', id);
-      setDoc(docRef, updatedItem, { merge: true }).catch((err) => {
-        console.warn('Error updating reading in Firestore:', err);
-      });
+      await setDoc(docRef, updatedItem, { merge: true });
     }
 
     showToast('Lectura actualizada');
   };
 
-  const deleteReading = (id: string) => {
+  const deleteReading = async (id: string) => {
     setReadings((prev) => prev.filter((r) => r.id !== id));
 
     // Delete in Firestore
     if (firebaseUser) {
       const docRef = doc(db, 'users', firebaseUser.uid, 'readings', id);
-      deleteDoc(docRef).catch((err) => {
-        console.warn('Error deleting reading from Firestore:', err);
-      });
+      await deleteDoc(docRef);
     }
 
     showToast('Registro eliminado', 'info');
   };
 
-  const updateProfile = (newProfile: UserProfile) => {
+  const updateProfile = async (newProfile: UserProfile) => {
     setProfile(newProfile);
 
     // Save in Firestore
     if (firebaseUser) {
       const docRef = doc(db, 'users', firebaseUser.uid);
-      setDoc(docRef, newProfile, { merge: true }).catch((err) => {
-        console.warn('Error updating profile in Firestore:', err);
-      });
+      await setDoc(docRef, newProfile, { merge: true });
     }
 
     showToast('Perfil actualizado');
   };
 
-  const updateServiceConfig = (serviceId: ServiceType, updates: Partial<ServiceConfig>) => {
+  const updateServiceConfig = async (serviceId: ServiceType, updates: Partial<ServiceConfig>) => {
     const updatedServices = {
       ...services,
       [serviceId]: {
@@ -688,50 +570,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save to Firestore
     if (firebaseUser) {
       const docRef = doc(db, 'users', firebaseUser.uid, 'settings', 'services');
-      setDoc(docRef, { services: updatedServices }, { merge: true }).catch((err) => {
-        console.warn('Error updating services in Firestore:', err);
-      });
+      await setDoc(docRef, { services: updatedServices }, { merge: true });
     }
 
     showToast(`Configuración de ${services[serviceId]?.name || serviceId} guardada`);
   };
 
-  const updateReminders = (newReminders: ReminderSettings) => {
+  const updateReminders = async (newReminders: ReminderSettings) => {
     setReminders(newReminders);
 
     // Save to Firestore
     if (firebaseUser) {
       const docRef = doc(db, 'users', firebaseUser.uid, 'settings', 'reminders');
-      setDoc(docRef, { reminders: newReminders }, { merge: true }).catch((err) => {
-        console.warn('Error updating reminders in Firestore:', err);
-      });
+      await setDoc(docRef, { reminders: newReminders }, { merge: true });
     }
 
     showToast('Preferencias de recordatorios guardadas');
-  };
-
-  const resetToSampleData = () => {
-    setReadings(INITIAL_READINGS);
-    setServices(INITIAL_SERVICES);
-    setProfile(INITIAL_PROFILE);
-    setReminders(INITIAL_REMINDERS);
-
-    if (firebaseUser) {
-      const batch = writeBatch(db);
-      INITIAL_READINGS.forEach((item) => {
-        const itemDoc = doc(db, 'users', firebaseUser.uid, 'readings', item.id);
-        batch.set(itemDoc, item);
-      });
-      const profileDoc = doc(db, 'users', firebaseUser.uid);
-      batch.set(profileDoc, INITIAL_PROFILE, { merge: true });
-      const servicesDoc = doc(db, 'users', firebaseUser.uid, 'settings', 'services');
-      batch.set(servicesDoc, { services: INITIAL_SERVICES }, { merge: true });
-      const remindersDoc = doc(db, 'users', firebaseUser.uid, 'settings', 'reminders');
-      batch.set(remindersDoc, { reminders: INITIAL_REMINDERS }, { merge: true });
-      batch.commit().catch(console.warn);
-    }
-
-    showToast('Datos restaurados');
   };
 
   const getLatestReadingForService = (service: ServiceType): UtilityReading | undefined => {
@@ -786,12 +640,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     // Sort chronological
     const sorted = [...readings].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Generate recent 6 calendar month names default if empty
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     sorted.forEach((item) => {
       const d = new Date(item.date);
+      if (isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const mName = monthNames[d.getMonth()];
 
@@ -826,20 +679,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
 
-    // Return the latest 6 months or fallback to demo distribution
-    if (result.length >= 6) {
-      return result.slice(-6);
-    }
-    
-    // Default 6 months corresponding to screenshot (Ene to Jun)
-    return [
-      { monthKey: '2023-01', monthName: 'Ene', luz: 220, agua: 11.2, gas: 38, luzCost: 28.6, aguaCost: 16.8, gasCost: 30.4 },
-      { monthKey: '2023-02', monthName: 'Feb', luz: 240, agua: 10.5, gas: 44, luzCost: 31.2, aguaCost: 15.7, gasCost: 35.2 },
-      { monthKey: '2023-03', monthName: 'Mar', luz: 250, agua: 15.0, gas: 39, luzCost: 37.5, aguaCost: 21.7, gasCost: 30.4 },
-      { monthKey: '2023-04', monthName: 'Abr', luz: 300, agua: 13.5, gas: 42, luzCost: 45.0, aguaCost: 19.5, gasCost: 31.5 },
-      { monthKey: '2023-05', monthName: 'May', luz: 290, agua: 14.0, gas: 45, luzCost: 37.7, aguaCost: 20.3, gasCost: 32.1 },
-      { monthKey: '2023-06', monthName: 'Jun', luz: 342, agua: 12.5, gas: 35, luzCost: 45.2, aguaCost: 18.5, gasCost: 28.0 },
-    ];
+    // If there are recorded months, return them sorted chronologically
+    return result;
   };
 
   return (
@@ -870,10 +711,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         authError,
         showAuthScreen,
         setShowAuthScreen,
-        isGuest,
+        isUserAuthenticated,
         loginWithGoogle,
         loginWithFacebook,
-        loginAsGuest,
         logoutUser,
         clearAuthError,
         addReading,
@@ -882,7 +722,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProfile,
         updateServiceConfig,
         updateReminders,
-        resetToSampleData,
         calculateCost,
         getLatestReadingForService,
         getComparisonForService,
@@ -901,3 +740,4 @@ export const useApp = () => {
   }
   return context;
 };
+

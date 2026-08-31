@@ -252,15 +252,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
               <div className="px-4 py-2 border-b border-[#eceef0]">
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-sm text-[#191c1e] truncate">{profile.name}</p>
-                  {isUserAuthenticated ? (
-                    <span className="text-[10px] bg-[#e8f5e9] text-[#166534] px-1.5 py-0.5 rounded font-semibold border border-[#a7f3d0]">
-                      Cuenta
-                    </span>
-                  ) : (
-                    <span className="text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded font-semibold border border-[#fde68a]">
-                      Demo
-                    </span>
-                  )}
+                  <span className="text-[10px] bg-[#e8f5e9] text-[#166534] px-1.5 py-0.5 rounded font-semibold border border-[#a7f3d0]">
+                    Firebase Sync
+                  </span>
                 </div>
                 <p className="text-xs text-[#76777d] truncate">{firebaseUser?.email || profile.email}</p>
                 <p className="text-xs text-[#006a61] mt-0.5 font-medium truncate">{profile.location} • Estrato {profile.estrato}</p>

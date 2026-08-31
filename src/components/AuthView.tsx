@@ -3,7 +3,6 @@ import {
   Zap, 
   ShieldCheck, 
   AlertCircle, 
-  Sparkles, 
   Flame, 
   Droplets,
   CheckCircle2,
@@ -15,7 +14,6 @@ export const AuthView: React.FC = () => {
   const { 
     loginWithGoogle,
     loginWithFacebook,
-    loginAsGuest, 
     authError, 
     clearAuthError,
     showToast,
@@ -23,7 +21,7 @@ export const AuthView: React.FC = () => {
   } = useApp();
 
   const [estrato, setEstrato] = useState<number>(profile.estrato || 3);
-  const [loadingProvider, setLoadingProvider] = useState<'google' | 'facebook' | 'guest' | null>(null);
+  const [loadingProvider, setLoadingProvider] = useState<'google' | 'facebook' | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
@@ -54,20 +52,6 @@ export const AuthView: React.FC = () => {
     }
   };
 
-  const handleGuestLogin = async () => {
-    setLocalError(null);
-    clearAuthError();
-    setLoadingProvider('guest');
-    try {
-      await loginAsGuest();
-      showToast('Modo demostración activado.', 'info');
-    } catch (err) {
-      console.error('Guest mode error:', err);
-    } finally {
-      setLoadingProvider(null);
-    }
-  };
-
   const currentError = localError || authError;
 
   return (
@@ -93,7 +77,7 @@ export const AuthView: React.FC = () => {
               Iniciar Sesión o Registrarse
             </h2>
             <p className="text-xs text-[#76777d] mt-1">
-              Ingresa con tu cuenta de Google o Facebook para sincronizar tus lecturas en la nube.
+              Accede con tu cuenta oficial para guardar y sincronizar tu información personal en tiempo real en la nube.
             </p>
           </div>
 
@@ -207,25 +191,9 @@ export const AuthView: React.FC = () => {
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-[#76777d]">
+          <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-[#76777d]">
             <Lock className="w-3.5 h-3.5 text-[#006a61]" />
-            <span>Autenticación oficial y segura con Firebase Auth</span>
-          </div>
-
-          {/* Quick Demo / Guest Access Button */}
-          <div className="mt-6 pt-5 border-t border-[#eceef0] text-center">
-            <p className="text-xs text-[#76777d] mb-2.5">
-              ¿Deseas explorar la plataforma antes de registrarte?
-            </p>
-            <button
-              type="button"
-              onClick={handleGuestLogin}
-              disabled={loadingProvider !== null}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#f2f4f6] hover:bg-[#e6e8ea] text-[#191c1e] font-semibold text-xs transition-colors flex items-center justify-center gap-2 border border-[#c6c6cd]/50 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-[#006a61]" />
-              <span>Ingresar en Modo Invitado / Demo</span>
-            </button>
+            <span>Autenticación oficial y almacenamiento privado por usuario en Firebase</span>
           </div>
 
         </div>

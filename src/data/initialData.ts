@@ -6,7 +6,7 @@ export const INITIAL_SERVICES: Record<string, ServiceConfig> = {
     name: 'Luz',
     enabled: true,
     unit: 'kWh',
-    defaultUnitPrice: 0.15,
+    defaultUnitPrice: 850, // Tarifa representativa $/kWh
     color: '#F59E0B',
     bgColor: '#FEF3C7',
     borderColor: '#F59E0B',
@@ -15,13 +15,19 @@ export const INITIAL_SERVICES: Record<string, ServiceConfig> = {
       optimoMax: 200,
       moderadoMax: 300,
     },
+    subsidyConfig: {
+      enabled: true,
+      maxEstrato: 3,
+      maxSubsidizedKwh: 173,
+      percentage: 15,
+    },
   },
   agua: {
     id: 'agua',
     name: 'Agua',
     enabled: true,
     unit: 'm³',
-    defaultUnitPrice: 1.50,
+    defaultUnitPrice: 3500,
     color: '#3B82F6',
     bgColor: '#DBEAFE',
     borderColor: '#3B82F6',
@@ -36,7 +42,7 @@ export const INITIAL_SERVICES: Record<string, ServiceConfig> = {
     name: 'Gas',
     enabled: true,
     unit: 'm³',
-    defaultUnitPrice: 0.80,
+    defaultUnitPrice: 2400,
     color: '#EF4444',
     bgColor: '#FEE2E2',
     borderColor: '#EF4444',
@@ -51,8 +57,9 @@ export const INITIAL_SERVICES: Record<string, ServiceConfig> = {
 export const INITIAL_PROFILE: UserProfile = {
   name: 'Usuario de HogarMedido',
   email: 'usuario@ejemplo.com',
-  location: 'Ciudad de México, México',
+  location: 'Bogotá, Colombia',
   avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC6KxCqeba0FAV57wxxlyFVD44J1nTLNgt_0oKZce8yk_pFr7pt3T1kma87Kv9eocoJuWr78owlDBhiX6bgDz43OViH6Tjcc4XT1W12sQ6xPYc2s2VoVxSjuxhpcA25J3wZHBTkQYxKcqvyqXNEDO9bqj3mHrctppQaNUO45aZsttXpgAol5jcCRTSkt7CAHr_j_zWthwkr5Bfg1paKo-8kiDhCKDAEpaw35uW2Tp8E11X-nqWZa63VXA',
+  estrato: 3,
 };
 
 export const INITIAL_REMINDERS: ReminderSettings = {

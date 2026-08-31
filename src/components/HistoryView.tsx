@@ -320,12 +320,26 @@ export const HistoryView: React.FC = () => {
                       {/* Service column */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full ${visual.bg} flex items-center justify-center`}>
+                          <div className={`w-8 h-8 rounded-full ${visual.bg} flex items-center justify-center shrink-0`}>
                             {visual.icon}
                           </div>
-                          <span className="font-semibold text-[#191c1e]">
-                            {visual.name}
-                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-[#191c1e]">
+                                {visual.name}
+                              </span>
+                              {reading.service === 'luz' && (reading.subsidizedKwh ?? (reading.consumption > 0 ? 1 : 0)) > 0 && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#d1fae5] text-[#065f46]">
+                                  Subsidio
+                                </span>
+                              )}
+                            </div>
+                            {reading.service === 'luz' && (
+                              <span className="text-[11px] text-[#76777d]">
+                                Estrato {reading.estrato || 3}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 

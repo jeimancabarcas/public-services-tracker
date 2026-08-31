@@ -10,7 +10,9 @@ import {
   Info,
   RotateCcw,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck,
+  Award
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ServiceType, ConsumptionStatus } from '../types';
@@ -24,11 +26,13 @@ interface NewEntryViewProps {
 export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel, isModal = false }) => {
   const { 
     services, 
+    profile,
     addReading, 
     updateReading, 
     editingReading, 
     setEditingReading, 
     getLatestReadingForService,
+    calculateCost,
     setActiveTab 
   } = useApp();
 
@@ -43,7 +47,12 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
     editingReading ? editingReading.currReading.toString() : '14750'
   );
   const [unitPrice, setUnitPrice] = useState<string>(
-    editingReading ? editingReading.unitPrice.toString() : '0.15'
+    editingReading 
+      ? editingReading.unitPrice.toString() 
+      : (services[editingReading?.service || 'luz']?.defaultUnitPrice?.toString() || '850')
+  );
+  const [estrato, setEstrato] = useState<number>(
+    editingReading?.estrato ?? profile?.estrato ?? 3
   );
   const [notes, setNotes] = useState<string>(editingReading?.notes || '');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -59,7 +68,6 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
       const last = getLatestReadingForService(newService);
       if (last) {
         setPrevReading(last.currReading.toString());
-        // Suggest a plausible current reading based on previous consumption
         const plausible = last.currReading + (last.consumption > 0 ? last.consumption : 10);
         setCurrReading(plausible.toString());
       } else {
@@ -81,9 +89,9 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
   const currNum = parseFloat(currReading) || 0;
   const priceNum = parseFloat(unitPrice) || 0;
 
-  // Real-time Calculations
+  // Real-time Calculations with Subsidy logic
   const calculatedConsumption = Math.max(0, currNum - prevNum);
-  const calculatedCost = Number((calculatedConsumption * priceNum).toFixed(2));
+  const costDetails = calculateCost(service, calculatedConsumption, priceNum, estrato);
 
   // Determine status & gauge
   const currentConfig = services[service] || services.luz;
@@ -106,6 +114,14 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
   };
 
   const statusInfo = getCalculatedStatus(calculatedConsumption);
+  const subsidyCfg = services.luz?.subsidyConfig || {
+    enabled: true,
+    maxEstrato: 3,
+    maxSubsidizedKwh: 173,
+    percentage: 15,
+  };
+  const isLuzSubsidyEligible = service === 'luz' && (subsidyCfg.enabled !== false) && (estrato <= (subsidyCfg.maxEstrato ?? 3));
+  const subsidyDiscountPerKwh = (priceNum || 0) * ((subsidyCfg.percentage ?? 15) / 100);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,6 +145,11 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
         currReading: currNum,
         unitPrice: priceNum,
         unit,
+        estrato,
+        baseCost: costDetails.baseCost,
+        subsidizedKwh: costDetails.subsidizedKwh,
+        subsidyDiscount: costDetails.subsidyDiscount,
+        totalCost: costDetails.totalCost,
         notes,
       });
       setEditingReading(null);
@@ -140,7 +161,11 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
         currReading: currNum,
         unit,
         unitPrice: priceNum,
-        totalCost: calculatedCost,
+        estrato,
+        baseCost: costDetails.baseCost,
+        subsidizedKwh: costDetails.subsidizedKwh,
+        subsidyDiscount: costDetails.subsidyDiscount,
+        totalCost: costDetails.totalCost,
         notes,
       });
     }
@@ -172,7 +197,7 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
             {editingReading ? 'Editar Registro' : 'Nuevo Registro'}
           </h2>
           <p className="text-sm text-[#45464d]">
-            Ingresa los datos actuales del medidor para calcular tu consumo.
+            Ingresa los datos del medidor para calcular automáticamente tu consumo y subsidios aplicables.
           </p>
         </header>
       )}
@@ -252,7 +277,7 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
             </div>
           </div>
 
-          {/* 2. Datos de Lectura */}
+          {/* 2. Datos de Lectura & Estrato */}
           <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(15,23,42,0.05)] border border-[#eceef0] flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-[#191c1e]">
@@ -263,8 +288,9 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
               </span>
             </div>
 
-            {/* Fecha */}
+            {/* Fecha y Estrato */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Fecha */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-[#191c1e]">
                   Fecha de lectura
@@ -282,7 +308,67 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
                   />
                 </div>
               </div>
+
+              {/* Estrato Socioeconómico (con info de subsidio) */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#191c1e]">
+                    Estrato Socioeconómico
+                  </label>
+                  {service === 'luz' && (
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      isLuzSubsidyEligible 
+                        ? 'bg-[#d1fae5] text-[#065f46]' 
+                        : 'bg-[#f2f4f6] text-[#76777d]'
+                    }`}>
+                      {isLuzSubsidyEligible ? 'Subsidio Activo' : 'Sin Subsidio'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <select
+                    value={estrato}
+                    onChange={(e) => setEstrato(parseInt(e.target.value, 10))}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#c6c6cd] bg-white text-[#191c1e] text-sm font-semibold focus:border-[#006a61] focus:ring-2 focus:ring-[#86f2e4]/30 transition-all"
+                  >
+                    <option value={1}>Estrato 1 (Con subsidio ≤ 173 kWh)</option>
+                    <option value={2}>Estrato 2 (Con subsidio ≤ 173 kWh)</option>
+                    <option value={3}>Estrato 3 (Con subsidio ≤ 173 kWh)</option>
+                    <option value={4}>Estrato 4 (Tarifa plena sin subsidio)</option>
+                    <option value={5}>Estrato 5 (Tarifa plena con contribución)</option>
+                    <option value={6}>Estrato 6 (Tarifa plena con contribución)</option>
+                  </select>
+                </div>
+              </div>
             </div>
+
+            {/* Informative banner for electricity subsidy */}
+            {service === 'luz' && (
+              <div className={`p-3.5 rounded-xl text-xs flex items-start gap-2.5 border transition-all ${
+                isLuzSubsidyEligible 
+                  ? 'bg-[#f0fdf4] border-[#86efac] text-[#166534]' 
+                  : 'bg-[#f8fafc] border-[#e2e8f0] text-[#475569]'
+              }`}>
+                <ShieldCheck className={`w-4 h-4 shrink-0 mt-0.5 ${isLuzSubsidyEligible ? 'text-[#16a34a]' : 'text-[#94a3b8]'}`} />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                    <span className="font-bold">
+                      {isLuzSubsidyEligible 
+                        ? `Subsidio automático del 15% (Estrato ${estrato}):` 
+                        : `Sin subsidio (Estrato ${estrato}):`}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#006a61]">
+                      {isLuzSubsidyEligible ? `-$${subsidyDiscountPerKwh.toFixed(2)}/kWh (15% de la tarifa)` : ''}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    {isLuzSubsidyEligible
+                      ? `Se descuenta automáticamente el 15% del valor de la tarifa ($${subsidyDiscountPerKwh.toFixed(2)}/kWh) en los primeros ${subsidyCfg.maxSubsidizedKwh} kWh.`
+                      : `Para estratos superiores a ${subsidyCfg.maxEstrato} rige la tarifa plena sin subsidio de subsistencia.`}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Lectura Anterior & Lectura Actual */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -333,7 +419,7 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-[#191c1e]">
-                  Precio unitario (ej. $/ {unit})
+                  Precio unitario base (ej. $/ {unit})
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#76777d]">
@@ -360,7 +446,7 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ej. Medición al final del ciclo..."
+                  placeholder="Ej. Medición de fin de mes..."
                   className="w-full px-4 py-2.5 rounded-lg border border-[#c6c6cd] bg-white text-[#191c1e] text-sm focus:border-[#006a61] focus:ring-2 focus:ring-[#86f2e4]/30 transition-all"
                 />
               </div>
@@ -388,16 +474,21 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
 
         {/* Right Column: Dynamic Calculation Sticky Card */}
         <div className="xl:col-span-1">
-          <div className="bg-[#131b2e] text-white p-6 rounded-xl shadow-lg sticky top-24 border-t-4 border-[#86f2e4] flex flex-col gap-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-              <Activity className="w-5 h-5 text-[#86f2e4]" />
-              <h3 className="font-bold text-base text-white">Resumen Calculado</h3>
+          <div className="bg-[#131b2e] text-white p-6 rounded-xl shadow-lg sticky top-24 border-t-4 border-[#86f2e4] flex flex-col gap-5">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-[#86f2e4]" />
+                <h3 className="font-bold text-base text-white">Resumen Calculado</h3>
+              </div>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-white/10 text-white/80">
+                Estrato {estrato}
+              </span>
             </div>
 
             <div className="flex flex-col gap-4">
               {/* Consumo total block */}
               <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                <p className="text-xs text-white/70 mb-1">Consumo total</p>
+                <p className="text-xs text-white/70 mb-1">Consumo total calculado</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-extrabold text-white tracking-tight">
                     {calculatedConsumption.toLocaleString('es-MX')}
@@ -423,26 +514,80 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
                 </div>
               </div>
 
-              {/* Costo estimado block */}
+              {/* Subsidy Breakdown for Electricity */}
+              {service === 'luz' && (
+                <div className="bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-white border-b border-white/10 pb-2">
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-[#F59E0B]" />
+                      <span>Detalle de Subsidio</span>
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      costDetails.subsidizedKwh > 0 ? 'bg-[#006a61] text-[#86f2e4]' : 'bg-white/10 text-white/60'
+                    }`}>
+                      {costDetails.subsidizedKwh > 0 ? 'Aplicado' : 'No Aplica'}
+                    </span>
+                  </div>
+
+                  {costDetails.subsidizedKwh > 0 ? (
+                    <>
+                      <div className="flex justify-between text-xs text-white/80">
+                        <span>kWh Subsidiados (≤ {subsidyCfg.maxSubsidizedKwh} kWh):</span>
+                        <span className="font-semibold text-white">{costDetails.subsidizedKwh} kWh</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-[#86f2e4]">
+                        <span>Descuento 15% (${subsidyDiscountPerKwh.toFixed(2)}/kWh):</span>
+                        <span className="font-bold">-${costDetails.subsidyDiscount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      {calculatedConsumption > subsidyCfg.maxSubsidizedKwh && (
+                        <div className="flex justify-between text-xs text-white/80">
+                          <span>Excedente (Tarifa plena):</span>
+                          <span className="font-semibold text-[#fde68a]">{calculatedConsumption - costDetails.subsidizedKwh} kWh</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs text-white/60 pt-1 border-t border-white/10">
+                        <span>Costo Base sin subsidio:</span>
+                        <span>${costDetails.baseCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-white/60">
+                      {estrato > (subsidyCfg.maxEstrato ?? 3) 
+                        ? `Al ser Estrato ${estrato} (mayor a ${subsidyCfg.maxEstrato}) no se aplica el subsidio en los primeros ${subsidyCfg.maxSubsidizedKwh} kWh.` 
+                        : 'Ingresa una lectura mayor para calcular el consumo.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Costo estimado final block */}
               <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                <p className="text-xs text-white/70 mb-1">Costo estimado</p>
+                <p className="text-xs text-white/70 mb-1">
+                  {service === 'luz' && costDetails.subsidizedKwh > 0 
+                    ? 'Total estimado (con subsidio)' 
+                    : 'Costo estimado total'}
+                </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-bold text-white/80">$</span>
                   <span className="text-4xl font-extrabold text-white tracking-tight">
-                    {calculatedCost.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {costDetails.totalCost.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
                 <p className="text-[11px] text-white/60 mt-3 flex items-center gap-1.5 leading-tight">
                   <Info className="w-3.5 h-3.5 shrink-0 text-[#86f2e4]" />
-                  <span>No incluye cargos fijos, subsidios ni impuestos aplicables.</span>
+                  <span>
+                    {service === 'luz' && costDetails.subsidizedKwh > 0
+                      ? 'Incluye descuento de $140.15/kWh en los primeros 173 kWh por Estrato ≤ 3.'
+                      : 'Tarifa directa por consumo multiplicado por precio unitario.'}
+                  </span>
                 </p>
               </div>
 
               {/* Service info summary */}
               <div className="p-3 bg-white/5 rounded-lg text-xs text-white/80 flex items-center justify-between">
                 <span>Tarifa Base:</span>
-                <span className="font-semibold text-white">${priceNum.toFixed(3)} / {unit}</span>
+                <span className="font-semibold text-white">${priceNum.toFixed(2)} / {unit}</span>
               </div>
             </div>
           </div>
@@ -451,3 +596,4 @@ export const NewEntryView: React.FC<NewEntryViewProps> = ({ onSuccess, onCancel,
     </div>
   );
 };
+

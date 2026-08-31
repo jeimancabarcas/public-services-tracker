@@ -47,6 +47,15 @@ interface AppContextType {
   updateReminders: (reminders: ReminderSettings) => void;
   resetToSampleData: () => void;
 
+  // Calculation helpers
+  calculateCost: (service: ServiceType, consumption: number, unitPrice: number, estratoOverride?: number) => {
+    baseCost: number;
+    estrato: number;
+    subsidizedKwh: number;
+    subsidyDiscount: number;
+    totalCost: number;
+  };
+
   // Computed data
   getLatestReadingForService: (service: ServiceType) => UtilityReading | undefined;
   getComparisonForService: (service: ServiceType) => {
@@ -168,15 +177,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return 'alto';
   };
 
+  const calculateCost = (
+    service: ServiceType,
+    consumption: number,
+    unitPrice: number,
+    estratoOverride?: number
+  ): {
+    baseCost: number;
+    estrato: number;
+    subsidizedKwh: number;
+    subsidyDiscount: number;
+    totalCost: number;
+  } => {
+    const currentEstrato = estratoOverride !== undefined ? estratoOverride : (profile.estrato || 3);
+    const baseCost = Number((consumption * unitPrice).toFixed(2));
+    const cfg = services[service] || INITIAL_SERVICES[service];
+
+    // Subsidy logic for electricity (luz):
+    // Estrato 3 or less receives a 15% discount on the tariff (unit price) for the first 173 kWh
+    if (
+      service === 'luz' &&
+      cfg?.subsidyConfig?.enabled !== false &&
+      currentEstrato <= (cfg?.subsidyConfig?.maxEstrato ?? 3)
+    ) {
+      const maxSub = cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173;
+      const percentage = cfg?.subsidyConfig?.percentage ?? 15;
+      const discountRate = unitPrice * (percentage / 100);
+      const subsidizedKwh = Math.min(consumption, maxSub);
+      const subsidyDiscount = Number((subsidizedKwh * discountRate).toFixed(2));
+      const totalCost = Number(Math.max(0, baseCost - subsidyDiscount).toFixed(2));
+
+      return {
+        baseCost,
+        estrato: currentEstrato,
+        subsidizedKwh,
+        subsidyDiscount,
+        totalCost,
+      };
+    }
+
+    return {
+      baseCost,
+      estrato: currentEstrato,
+      subsidizedKwh: 0,
+      subsidyDiscount: 0,
+      totalCost: baseCost,
+    };
+  };
+
   const addReading = (readingData: Omit<UtilityReading, 'id' | 'createdAt' | 'status' | 'consumption'>): UtilityReading => {
     const consumption = Math.max(0, readingData.currReading - readingData.prevReading);
     const status = calculateStatus(readingData.service, consumption);
+    const costDetails = calculateCost(
+      readingData.service,
+      consumption,
+      readingData.unitPrice,
+      readingData.estrato
+    );
     
     const newEntry: UtilityReading = {
       ...readingData,
       id: `read-${Date.now()}`,
       consumption,
       status,
+      baseCost: readingData.baseCost ?? costDetails.baseCost,
+      estrato: readingData.estrato ?? costDetails.estrato,
+      subsidizedKwh: readingData.subsidizedKwh ?? costDetails.subsidizedKwh,
+      subsidyDiscount: readingData.subsidyDiscount ?? costDetails.subsidyDiscount,
+      totalCost: readingData.totalCost ?? costDetails.totalCost,
       createdAt: new Date().toISOString(),
     };
 
@@ -190,12 +258,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, ...readingData };
-          if (readingData.currReading !== undefined || readingData.prevReading !== undefined) {
+          if (
+            readingData.currReading !== undefined || 
+            readingData.prevReading !== undefined || 
+            readingData.unitPrice !== undefined ||
+            readingData.estrato !== undefined
+          ) {
             const curr = updated.currReading;
             const prevVal = updated.prevReading;
             updated.consumption = Math.max(0, curr - prevVal);
             updated.status = calculateStatus(updated.service, updated.consumption);
-            updated.totalCost = Number((updated.consumption * updated.unitPrice).toFixed(2));
+            
+            const costDetails = calculateCost(
+              updated.service,
+              updated.consumption,
+              updated.unitPrice,
+              updated.estrato
+            );
+            updated.baseCost = costDetails.baseCost;
+            updated.estrato = costDetails.estrato;
+            updated.subsidizedKwh = costDetails.subsidizedKwh;
+            updated.subsidyDiscount = costDetails.subsidyDiscount;
+            updated.totalCost = costDetails.totalCost;
           }
           return updated;
         }
@@ -216,13 +300,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateServiceConfig = (serviceId: ServiceType, updates: Partial<ServiceConfig>) => {
-    setServices((prev) => ({
-      ...prev,
-      [serviceId]: {
-        ...prev[serviceId],
-        ...updates,
-      },
-    }));
+    setServices((prev) => {
+      const current = prev[serviceId];
+      const mergedSubsidy = updates.subsidyConfig
+        ? { ...(current?.subsidyConfig || { enabled: true, maxEstrato: 3, maxSubsidizedKwh: 173, percentage: 15 }), ...updates.subsidyConfig }
+        : current?.subsidyConfig;
+
+      return {
+        ...prev,
+        [serviceId]: {
+          ...current,
+          ...updates,
+          ...(mergedSubsidy ? { subsidyConfig: mergedSubsidy } : {}),
+        },
+      };
+    });
     showToast(`Configuración de ${services[serviceId]?.name || serviceId} guardada`);
   };
 
@@ -376,6 +468,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateServiceConfig,
         updateReminders,
         resetToSampleData,
+        calculateCost,
         getLatestReadingForService,
         getComparisonForService,
         getMonthlyTrends,

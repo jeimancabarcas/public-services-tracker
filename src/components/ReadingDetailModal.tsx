@@ -124,9 +124,52 @@ export const ReadingDetailModal: React.FC = () => {
                 <span className="font-bold text-[#006a61]">+{reading.consumption} {reading.unit}</span>
               </div>
               <div className="flex justify-between py-2.5 px-4">
-                <span className="text-[#45464d]">Tarifa Unitaria Aplicada</span>
-                <span className="font-semibold text-[#191c1e]">${reading.unitPrice.toFixed(3)} / {reading.unit}</span>
+                <span className="text-[#45464d]">Tarifa Unitaria Base</span>
+                <span className="font-semibold text-[#191c1e]">${reading.unitPrice.toFixed(2)} / {reading.unit}</span>
               </div>
+
+              {/* Electricity Subsidy Details */}
+              {reading.service === 'luz' && (
+                <>
+                  <div className="flex justify-between py-2.5 px-4 bg-[#f8fafc]">
+                    <span className="text-[#45464d]">Estrato Socioeconómico</span>
+                    <span className="font-semibold text-[#191c1e]">
+                      Estrato {reading.estrato || 3} {(reading.estrato || 3) <= (cfg?.subsidyConfig?.maxEstrato ?? 3) ? '(Subsidio Aplicable)' : ''}
+                    </span>
+                  </div>
+
+                  {(reading.subsidizedKwh ?? (reading.consumption > 0 && (reading.estrato || 3) <= (cfg?.subsidyConfig?.maxEstrato ?? 3) ? Math.min(reading.consumption, cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173) : 0)) > 0 && (
+                    <>
+                      <div className="flex justify-between py-2.5 px-4 bg-[#f0fdf4]">
+                        <span className="text-[#166534] font-medium">
+                          Consumo Subsidiado (≤ {cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173} kWh)
+                        </span>
+                        <span className="font-bold text-[#166534]">
+                          {reading.subsidizedKwh ?? Math.min(reading.consumption, cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173)} kWh
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2.5 px-4 bg-[#f0fdf4]">
+                        <span className="text-[#166534] font-medium">
+                          Descuento Subsidio 15% (-${(reading.unitPrice * ((cfg?.subsidyConfig?.percentage ?? 15) / 100)).toFixed(2)}/kWh)
+                        </span>
+                        <span className="font-bold text-[#16a34a]">
+                          -${(reading.subsidyDiscount ?? (Math.min(reading.consumption, cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173) * (reading.unitPrice * 0.15))).toFixed(2)}
+                        </span>
+                      </div>
+                      {reading.consumption > (cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173) && (
+                        <div className="flex justify-between py-2.5 px-4">
+                          <span className="text-[#45464d]">
+                            Consumo Tarifa Plena (&gt; {cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173} kWh)
+                          </span>
+                          <span className="font-semibold text-[#b45309]">
+                            {reading.consumption - (reading.subsidizedKwh ?? (cfg?.subsidyConfig?.maxSubsidizedKwh ?? 173))} kWh
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
 

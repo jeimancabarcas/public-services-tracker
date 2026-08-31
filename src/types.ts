@@ -12,6 +12,10 @@ export interface UtilityReading {
   consumption: number;
   unit: string;
   unitPrice: number;
+  baseCost?: number;
+  estrato?: number;
+  subsidizedKwh?: number;
+  subsidyDiscount?: number;
   totalCost: number;
   status: ConsumptionStatus;
   notes?: string;
@@ -32,6 +36,12 @@ export interface ServiceConfig {
     optimoMax: number;
     moderadoMax: number;
   };
+  subsidyConfig?: {
+    enabled: boolean;
+    maxEstrato: number;
+    maxSubsidizedKwh: number;
+    percentage: number; // 15% del valor de la tarifa
+  };
 }
 
 export interface UserProfile {
@@ -39,6 +49,7 @@ export interface UserProfile {
   email: string;
   location: string;
   avatarUrl: string;
+  estrato: number; // 1 to 6
 }
 
 export interface ReminderSettings {

@@ -9,7 +9,12 @@ import {
   Save, 
   RotateCcw,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck,
+  Award
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ServiceType } from '../types';
@@ -29,6 +34,7 @@ export const SettingsView: React.FC = () => {
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
   const [location, setLocation] = useState(profile.location);
+  const [estrato, setEstrato] = useState(profile.estrato || 3);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
 
   // Local state for reminders
@@ -39,15 +45,18 @@ export const SettingsView: React.FC = () => {
   // Local state for services
   const [luzEnabled, setLuzEnabled] = useState(services.luz?.enabled ?? true);
   const [luzUnit, setLuzUnit] = useState(services.luz?.unit || 'kWh');
-  const [luzPrice, setLuzPrice] = useState(services.luz?.defaultUnitPrice || 0.15);
+  const [luzPrice, setLuzPrice] = useState(services.luz?.defaultUnitPrice || 850);
+
+  // Subsidio de luz state
+  const [subsidyEnabled, setSubsidyEnabled] = useState(services.luz?.subsidyConfig?.enabled ?? true);
 
   const [aguaEnabled, setAguaEnabled] = useState(services.agua?.enabled ?? true);
   const [aguaUnit, setAguaUnit] = useState(services.agua?.unit || 'm³');
-  const [aguaPrice, setAguaPrice] = useState(services.agua?.defaultUnitPrice || 1.50);
+  const [aguaPrice, setAguaPrice] = useState(services.agua?.defaultUnitPrice || 4200);
 
-  const [gasEnabled, setGasEnabled] = useState(services.gas?.enabled ?? false);
-  const [gasUnit, setGasUnit] = useState(services.gas?.unit || 'Lts');
-  const [gasPrice, setGasPrice] = useState(services.gas?.defaultUnitPrice || 0.80);
+  const [gasEnabled, setGasEnabled] = useState(services.gas?.enabled ?? true);
+  const [gasUnit, setGasUnit] = useState(services.gas?.unit || 'm³');
+  const [gasPrice, setGasPrice] = useState(services.gas?.defaultUnitPrice || 2900);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +64,7 @@ export const SettingsView: React.FC = () => {
       name,
       email,
       location,
+      estrato,
       avatarUrl,
     });
   };
@@ -94,6 +104,18 @@ export const SettingsView: React.FC = () => {
 
   const handleUnitBlur = (svc: ServiceType, unitVal: string, priceVal: number) => {
     updateServiceConfig(svc, { unit: unitVal, defaultUnitPrice: priceVal });
+  };
+
+  const handleSubsidyToggle = (enabled: boolean) => {
+    setSubsidyEnabled(enabled);
+    updateServiceConfig('luz', {
+      subsidyConfig: {
+        enabled,
+        maxEstrato: 3,
+        maxSubsidizedKwh: 173,
+        percentage: 15,
+      },
+    });
   };
 
   const presetAvatars = [
@@ -181,9 +203,9 @@ export const SettingsView: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-[#45464d]">
-                      Ubicación
+                      Ubicación / Ciudad
                     </label>
                     <input
                       type="text"
@@ -192,6 +214,31 @@ export const SettingsView: React.FC = () => {
                       required
                       className="rounded-lg border border-[#c6c6cd] bg-white px-3.5 py-2.5 text-sm text-[#191c1e] font-medium focus:border-[#006a61] focus:ring-2 focus:ring-[#86f2e4]/30 transition-all"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-[#45464d]">
+                        Estrato Socioeconómico
+                      </label>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        estrato <= 3 ? 'bg-[#d1fae5] text-[#065f46]' : 'bg-[#f2f4f6] text-[#76777d]'
+                      }`}>
+                        {estrato <= 3 ? 'Subsidio Luz Activo' : 'Tarifa Plena'}
+                      </span>
+                    </div>
+                    <select
+                      value={estrato}
+                      onChange={(e) => setEstrato(parseInt(e.target.value, 10))}
+                      className="rounded-lg border border-[#c6c6cd] bg-white px-3.5 py-2.5 text-sm text-[#191c1e] font-semibold focus:border-[#006a61] focus:ring-2 focus:ring-[#86f2e4]/30 transition-all"
+                    >
+                      <option value={1}>Estrato 1 (Con subsidio luz ≤ 173 kWh)</option>
+                      <option value={2}>Estrato 2 (Con subsidio luz ≤ 173 kWh)</option>
+                      <option value={3}>Estrato 3 (Con subsidio luz ≤ 173 kWh)</option>
+                      <option value={4}>Estrato 4 (Tarifa plena)</option>
+                      <option value={5}>Estrato 5 (Tarifa plena)</option>
+                      <option value={6}>Estrato 6 (Tarifa plena)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -371,6 +418,48 @@ export const SettingsView: React.FC = () => {
                   onBlur={() => handleUnitBlur('luz', luzUnit, luzPrice)}
                   className="rounded-lg border border-[#c6c6cd] bg-white px-3 py-1.5 text-sm text-[#191c1e] font-semibold max-w-[120px] focus:border-[#006a61] focus:ring-1 focus:ring-[#006a61]"
                 />
+              </div>
+
+              {/* Subsidio de Energía (15% Automático) */}
+              <div className="pt-2 border-t border-[#eceef0] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#191c1e] flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#006a61]" />
+                    <span>Subsidio de Energía (15% Automático)</span>
+                  </span>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[#45464d]">
+                    <span>{subsidyEnabled ? 'Activo' : 'Inactivo'}</span>
+                    <input
+                      type="checkbox"
+                      checked={subsidyEnabled}
+                      onChange={(e) => handleSubsidyToggle(e.target.checked)}
+                      className="w-4 h-4 text-[#006a61] rounded border-gray-300 focus:ring-[#006a61]"
+                    />
+                  </label>
+                </div>
+
+                <div className="p-3 bg-[#f0fdf4] rounded-lg border border-[#bbf7d0] text-xs text-[#166534] space-y-2">
+                  <p className="leading-relaxed">
+                    El subsidio corresponde automáticamente al <strong>15% del valor de la tarifa</strong> por kWh sobre los primeros <strong>173 kWh</strong> para <strong>Estratos 1, 2 y 3</strong>. No requiere configuración manual.
+                  </p>
+                  
+                  {subsidyEnabled && (
+                    <div className="bg-white/80 rounded-md p-2 border border-[#bbf7d0] flex flex-col gap-1 text-[11px]">
+                      <div className="flex justify-between text-[#15803d]">
+                        <span>Tarifa base:</span>
+                        <span className="font-semibold">${luzPrice.toFixed(2)} / kWh</span>
+                      </div>
+                      <div className="flex justify-between text-[#16a34a] font-bold">
+                        <span>Descuento del subsidio (15%):</span>
+                        <span>-${(luzPrice * 0.15).toFixed(2)} / kWh</span>
+                      </div>
+                      <div className="flex justify-between text-[#065f46] font-extrabold pt-1 border-t border-[#bbf7d0]/60">
+                        <span>Tarifa subsidiada neta (≤ 173 kWh):</span>
+                        <span>${(luzPrice * 0.85).toFixed(2)} / kWh</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

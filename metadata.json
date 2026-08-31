@@ -1,0 +1,6 @@
+{
+  "name": "HogarMedido",
+  "description": "Aplicación para el registro, monitoreo y cálculo del consumo de servicios públicos en el hogar (Luz, Agua, Gas).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

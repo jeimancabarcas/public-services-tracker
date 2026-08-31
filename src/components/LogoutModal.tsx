@@ -3,14 +3,13 @@ import { LogOut, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const LogoutModal: React.FC = () => {
-  const { isLogoutModalOpen, setIsLogoutModalOpen, showToast, setActiveTab } = useApp();
+  const { isLogoutModalOpen, setIsLogoutModalOpen, logoutUser } = useApp();
 
   if (!isLogoutModalOpen) return null;
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLogoutModalOpen(false);
-    showToast('Sesión cerrada correctamente. Modo demostración activo.', 'info');
-    setActiveTab('dashboard');
+    await logoutUser();
   };
 
   return (

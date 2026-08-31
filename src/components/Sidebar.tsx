@@ -6,8 +6,11 @@ import {
   Settings, 
   HelpCircle, 
   LogOut,
+  LogIn,
   Zap,
-  X
+  X,
+  UserCheck,
+  User
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ActiveTab } from '../types';
@@ -18,7 +21,17 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, setMobileOpen }) => {
-  const { activeTab, setActiveTab, setIsHelpModalOpen, setIsLogoutModalOpen } = useApp();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    setIsHelpModalOpen, 
+    setIsLogoutModalOpen, 
+    firebaseUser,
+    setShowAuthScreen,
+    profile
+  } = useApp();
+
+  const isUserAuthenticated = firebaseUser && !firebaseUser.isAnonymous;
 
   const handleNavClick = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -122,27 +135,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, setMobileO
 
         {/* Footer actions */}
         <div className="flex flex-col gap-1.5 border-t border-[#c6c6cd]/50 pt-4 mt-auto">
+          {/* User mini badge */}
+          <div className="px-3.5 py-2 rounded-lg bg-white/60 border border-[#c6c6cd]/40 mb-1 flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {firebaseUser?.photoURL ? (
+                <img
+                  src={firebaseUser.photoURL}
+                  alt={profile.name}
+                  referrerPolicy="no-referrer"
+                  className="w-7 h-7 rounded-full object-cover border border-[#c6c6cd] shadow-2xs shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#006a61]/10 flex items-center justify-center text-[#006a61] shrink-0 font-bold text-xs">
+                  {isUserAuthenticated ? (profile.name?.charAt(0) || 'U') : 'D'}
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-[#191c1e] truncate leading-tight">
+                  {isUserAuthenticated ? profile.name : 'Modo Invitado'}
+                </p>
+                <p className="text-[10px] text-[#76777d] truncate leading-tight">
+                  {isUserAuthenticated ? (firebaseUser?.email || profile.email) : 'Datos locales / demo'}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={() => {
               setIsHelpModalOpen(true);
               if (setMobileOpen) setMobileOpen(false);
             }}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-[#45464d] hover:bg-[#e6e8ea] hover:text-[#191c1e] transition-colors text-left"
+            className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#45464d] hover:bg-[#e6e8ea] hover:text-[#191c1e] transition-colors text-left"
           >
-            <HelpCircle className="w-5 h-5 shrink-0 text-[#45464d]" />
+            <HelpCircle className="w-4 h-4 shrink-0 text-[#45464d]" />
             <span className="font-medium">Ayuda</span>
           </button>
 
-          <button
-            onClick={() => {
-              setIsLogoutModalOpen(true);
-              if (setMobileOpen) setMobileOpen(false);
-            }}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-colors text-left"
-          >
-            <LogOut className="w-5 h-5 shrink-0 text-[#ba1a1a]" />
-            <span className="font-medium">Cerrar Sesión</span>
-          </button>
+          {isUserAuthenticated ? (
+            <button
+              onClick={() => {
+                setIsLogoutModalOpen(true);
+                if (setMobileOpen) setMobileOpen(false);
+              }}
+              className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/60 transition-colors text-left"
+            >
+              <LogOut className="w-4 h-4 shrink-0 text-[#ba1a1a]" />
+              <span className="font-medium">Cerrar Sesión</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setShowAuthScreen(true);
+                if (setMobileOpen) setMobileOpen(false);
+              }}
+              className="flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-[#006a61] hover:bg-[#86f2e4]/30 font-semibold transition-colors text-left"
+            >
+              <LogIn className="w-4 h-4 shrink-0 text-[#006a61]" />
+              <span>Iniciar Sesión</span>
+            </button>
+          )}
         </div>
       </aside>
     </>

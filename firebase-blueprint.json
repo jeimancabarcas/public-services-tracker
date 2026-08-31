@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0.0",
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "name": { "type": "string", "required": true },
+        "email": { "type": "string", "required": false },
+        "address": { "type": "string", "required": false },
+        "estrato": { "type": "number", "required": true },
+        "avatarUrl": { "type": "string", "required": false },
+        "currency": { "type": "string", "required": true },
+        "dateFormat": { "type": "string", "required": true },
+        "updatedAt": { "type": "string", "required": false }
+      }
+    },
+    "UtilityReading": {
+      "collection": "users/{userId}/readings",
+      "fields": {
+        "service": { "type": "string", "required": true },
+        "currentReading": { "type": "number", "required": true },
+        "previousReading": { "type": "number", "required": true },
+        "consumption": { "type": "number", "required": true },
+        "readingDate": { "type": "string", "required": true },
+        "billingPeriod": { "type": "string", "required": true },
+        "unitPrice": { "type": "number", "required": true },
+        "baseCost": { "type": "number", "required": true },
+        "estrato": { "type": "number", "required": false },
+        "subsidizedKwh": { "type": "number", "required": false },
+        "subsidyDiscount": { "type": "number", "required": false },
+        "totalCost": { "type": "number", "required": true },
+        "status": { "type": "string", "required": true },
+        "notes": { "type": "string", "required": false },
+        "meterPhotoUrl": { "type": "string", "required": false },
+        "createdAt": { "type": "string", "required": true }
+      }
+    },
+    "ServiceSettings": {
+      "collection": "users/{userId}/settings",
+      "fields": {
+        "services": { "type": "map", "required": true },
+        "updatedAt": { "type": "string", "required": false }
+      }
+    },
+    "ReminderSettings": {
+      "collection": "users/{userId}/settings",
+      "fields": {
+        "reminders": { "type": "map", "required": true },
+        "updatedAt": { "type": "string", "required": false }
+      }
+    }
+  }
+}

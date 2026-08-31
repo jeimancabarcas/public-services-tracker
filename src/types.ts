@@ -60,6 +60,8 @@ export interface ReminderSettings {
 
 export type ActiveTab = 'dashboard' | 'registro' | 'historial' | 'configuracion' | 'ayuda';
 
+export type CloudSyncStatus = 'connected' | 'syncing' | 'offline' | 'error';
+
 export interface MonthlyTrendData {
   monthKey: string;
   monthName: string;

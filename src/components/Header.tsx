@@ -9,7 +9,13 @@ import {
   X,
   User,
   Settings,
-  ChevronRight
+  ChevronRight,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  LogIn,
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -24,13 +30,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     setIsNewEntryModalOpen, 
     profile, 
     readings, 
-    reminders 
+    reminders,
+    cloudStatus,
+    firebaseUser,
+    isGuest,
+    setShowAuthScreen,
+    setIsLogoutModalOpen
   } = useApp();
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const isUserAuthenticated = firebaseUser && !firebaseUser.isAnonymous;
 
   // Close popovers on click outside
   useEffect(() => {
@@ -88,7 +101,30 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3 md:gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-3.5">
+        {/* Firebase Cloud Sync Badge */}
+        <div 
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f2f4f6] text-[#45464d] border border-[#c6c6cd]/30"
+          title={cloudStatus === 'connected' ? 'Sincronizado con Firebase Firestore (home-tracker-a786f)' : cloudStatus === 'syncing' ? 'Sincronizando con Firebase...' : 'Modo local activo'}
+        >
+          {cloudStatus === 'connected' ? (
+            <>
+              <Cloud className="w-3.5 h-3.5 text-[#006a61]" />
+              <span className="text-[11px] font-semibold text-[#006a61]">Firebase Cloud</span>
+            </>
+          ) : cloudStatus === 'syncing' ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 text-[#b97500] animate-spin" />
+              <span className="text-[11px] text-[#b97500]">Sincronizando...</span>
+            </>
+          ) : (
+            <>
+              <CloudOff className="w-3.5 h-3.5 text-[#76777d]" />
+              <span className="text-[11px] text-[#76777d]">Local</span>
+            </>
+          )}
+        </div>
+
         {/* Notifications Popover */}
         <div className="relative" ref={notifRef}>
           <button
@@ -200,8 +236,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
             aria-label="Perfil de usuario"
           >
             <img
-              src={profile.avatarUrl}
+              src={firebaseUser?.photoURL || profile.avatarUrl}
               alt={profile.name}
+              referrerPolicy="no-referrer"
               className="w-9 h-9 rounded-full object-cover border border-[#c6c6cd] shadow-xs"
               onError={(e) => {
                 // Fallback avatar if external URL fails
@@ -213,9 +250,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           {profileMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-[#c6c6cd]/40 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-4 py-2 border-b border-[#eceef0]">
-                <p className="font-semibold text-sm text-[#191c1e] truncate">{profile.name}</p>
-                <p className="text-xs text-[#76777d] truncate">{profile.email}</p>
-                <p className="text-xs text-[#006a61] mt-1 font-medium truncate">{profile.location}</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-sm text-[#191c1e] truncate">{profile.name}</p>
+                  {isUserAuthenticated ? (
+                    <span className="text-[10px] bg-[#e8f5e9] text-[#166534] px-1.5 py-0.5 rounded font-semibold border border-[#a7f3d0]">
+                      Cuenta
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded font-semibold border border-[#fde68a]">
+                      Demo
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#76777d] truncate">{firebaseUser?.email || profile.email}</p>
+                <p className="text-xs text-[#006a61] mt-0.5 font-medium truncate">{profile.location} • Estrato {profile.estrato}</p>
               </div>
 
               <div className="py-1">
@@ -246,6 +294,32 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                   </div>
                   <ChevronRight className="w-4 h-4 text-[#c6c6cd]" />
                 </button>
+
+                <div className="my-1 border-t border-[#eceef0]" />
+
+                {isUserAuthenticated ? (
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setIsLogoutModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-[#ba1a1a] hover:bg-[#ffdad6]/40"
+                  >
+                    <LogOut className="w-4 h-4 text-[#ba1a1a]" />
+                    <span className="font-medium">Cerrar Sesión</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setShowAuthScreen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-[#006a61] hover:bg-[#86f2e4]/20 font-semibold"
+                  >
+                    <LogIn className="w-4 h-4 text-[#006a61]" />
+                    <span>Iniciar Sesión / Registrarse</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

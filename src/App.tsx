@@ -6,6 +6,7 @@ import { DashboardView } from './components/DashboardView';
 import { NewEntryView } from './components/NewEntryView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
+import { AuthView } from './components/AuthView';
 import { NewEntryModal } from './components/NewEntryModal';
 import { ReadingDetailModal } from './components/ReadingDetailModal';
 import { HelpModal } from './components/HelpModal';
@@ -13,8 +14,21 @@ import { LogoutModal } from './components/LogoutModal';
 import { ToastContainer } from './components/ToastContainer';
 
 const MainLayout: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, showAuthScreen, isGuest, firebaseUser, isAuthLoading } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // If showing auth view or if not logged in and not guest
+  const isAnonymous = firebaseUser?.isAnonymous ?? true;
+  const shouldShowAuth = showAuthScreen || (!isGuest && isAnonymous && !firebaseUser);
+
+  if (shouldShowAuth && !isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e] antialiased">
+        <AuthView />
+        <ToastContainer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e] flex flex-col antialiased">

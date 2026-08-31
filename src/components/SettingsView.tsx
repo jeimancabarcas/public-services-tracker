@@ -14,7 +14,12 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldCheck,
-  Award
+  Award,
+  Cloud,
+  Database,
+  LogIn,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ServiceType } from '../types';
@@ -27,8 +32,14 @@ export const SettingsView: React.FC = () => {
     updateReminders, 
     services, 
     updateServiceConfig,
-    resetToSampleData 
+    resetToSampleData,
+    cloudStatus,
+    firebaseUser,
+    setShowAuthScreen,
+    setIsLogoutModalOpen
   } = useApp();
+
+  const isUserAuthenticated = firebaseUser && !firebaseUser.isAnonymous;
 
   // Local state for profile form
   const [name, setName] = useState(profile.name);
@@ -574,6 +585,84 @@ export const SettingsView: React.FC = () => {
                 />
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Firebase Cloud Database Section */}
+      <section className="bg-white rounded-xl p-6 border border-[#c6c6cd]/40 shadow-xs">
+        <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-[#eceef0]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#86f2e4]/30 flex items-center justify-center text-[#006a61]">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#191c1e]">Base de Datos en la Nube (Firebase)</h2>
+              <p className="text-xs text-[#76777d]">Sincronización persistente en tiempo real con Google Cloud Firestore</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+              cloudStatus === 'connected' 
+                ? 'bg-[#e8f5e9] text-[#166534] border border-[#a7f3d0]' 
+                : cloudStatus === 'syncing' 
+                ? 'bg-[#fffbeb] text-[#92400e] border border-[#fde68a]' 
+                : 'bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb]'
+            }`}>
+              <Cloud className="w-3.5 h-3.5" />
+              <span>
+                {cloudStatus === 'connected' ? 'Conectado a Firebase' : cloudStatus === 'syncing' ? 'Sincronizando...' : 'Modo Offline'}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="p-3 bg-[#f7f9fb] rounded-lg border border-[#eceef0]">
+            <span className="text-[#76777d] block">Proyecto Firebase:</span>
+            <span className="font-mono font-bold text-[#191c1e] text-sm">home-tracker-a786f</span>
+          </div>
+          <div className="p-3 bg-[#f7f9fb] rounded-lg border border-[#eceef0]">
+            <span className="text-[#76777d] block">Identificador de Usuario (UID):</span>
+            <span className="font-mono font-semibold text-[#006a61] truncate block" title={firebaseUser?.uid || 'Iniciando...'}>
+              {firebaseUser?.uid || 'Conectando usuario...'}
+            </span>
+          </div>
+        </div>
+
+        {/* Account state and switch button */}
+        <div className="mt-4 pt-4 border-t border-[#eceef0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-[#006a61]" />
+            <span className="text-[#45464d]">
+              {isUserAuthenticated ? (
+                <>Sesión iniciada como: <strong className="text-[#191c1e]">{firebaseUser?.email}</strong></>
+              ) : (
+                <>Estás navegando en <strong className="text-[#92400e]">Modo Invitado / Demostración</strong></>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isUserAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => setIsLogoutModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#ba1a1a]/30 bg-[#ffdad6]/40 hover:bg-[#ffdad6] text-[#ba1a1a] font-semibold transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Cerrar Sesión</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAuthScreen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#006a61] hover:bg-[#005149] text-white font-semibold shadow-xs transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Iniciar Sesión / Registrarse</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
